@@ -40,35 +40,43 @@ Foreach OU, get a list of servers/computers
 Foreach server, check the group it's in and define restart day
 #>
 $Computers = @{}
+$ListServers = @()
 $AppOU = Get-ADOrganizationalUnit -LDAPFilter '(name=*)' -SearchBase $SearchBase -SearchScope OneLevel
-foreach ($ou in $AppOU)
-{
-    $ListServers = Get-ADComputer -Filter * -Properties Name, MemberOf -SearchBase $ou | Select-Object Name, @{Name="Restart";E={$_.MemberOf.Value}} | Sort-Object MemberOf
-    foreach ($Server in $ListServers) 
-    {
-        $key = $Server.Name
-        $value = $Server.Restart
-        $Computers.Add($key, $value)
-    }   
+foreach ($ou in $AppOU){
+    $ListServers += Get-ADComputer -Filter * -Properties Name, MemberOf -SearchBase $ou | Select-Object Name, @{Name="Restart";E={$_.MemberOf.Value}} | Sort-Object MemberOf
 }
 
-foreach ($Computer in @($Computers.keys)) 
-{
-    $member = $Computers[$Computer]
-    if ($member -match 'GG_S_WSUS')
-    {
-        $value = $member.Substring($member.IndexOf("GG_S_WSUS"),16)
-        switch ($value)
+foreach ($server in $ListServers) {
+    $key = $server.Name
+    $restartValue = $server.Restart
+    $value = ""
+    if ($restartValue.Count -ge 2) {
+        $restartValue | ForEach-Object `
         {
-            "GG_S_WSUS_Zat_VM" {$Computers[$Computer] = "Zaterdag Voormiddag"}
-            "GG_S_WSUS_Zat_NM" {$Computers[$Computer] = "Zaterdag Namiddag"}
-            "GG_S_WSUS_Zon_VM" {$Computers[$Computer] = "Zondag Voormiddag"}
-            "GG_S_WSUS_Zon_NM" {$Computers[$Computer] = "Zondag Namiddag"}
-            default {$Computers[$Computer] = ""}
+            if($_ -match 'GG_S_WSUS') {
+                $value = $_
+            }
         }
     }
-    else {$Computers[$Computer] = "" }
-}  
+    else {
+        $value = $restartValue
+    }
+    if ($value -match 'GG_S_WSUS') {
+        $value = $value.Substring($value.IndexOf("GG_S_WSUS"),16)
+        switch ($value)
+        {
+                "GG_S_WSUS_Zat_VM" {$value = "Zaterdag Voormiddag"}
+                "GG_S_WSUS_Zat_NM" {$value = "Zaterdag Namiddag"}
+                "GG_S_WSUS_Zon_VM" {$value = "Zondag Voormiddag"}
+                "GG_S_WSUS_Zon_NM" {$value = "Zondag Namiddag"}
+                default {$value = ""}
+        }
+    }
+    else {
+        $value = ""
+    }
+    $Computers.Add($key,$value)
+}
 
 $Data = Get-VM -Server $connection | Get-View | Select-Object Name, @{Name="Status";E={$_.Summary.Runtime.PowerState}}, @{Name="LastBootTime";E={$LijstVM[$_.Name]}}, @{Name="Restart";E={$Computers[$_.Name]}}
 [xml]$html = $Data | Sort-Object LastBootTime -Descending | ConvertTo-Html -Fragment
@@ -131,6 +139,6 @@ $mailParams=@{
     BodyAsHTML = $true
 }
 
-$body
+$Data
 
 Send-MailMessage @mailParams

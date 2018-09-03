@@ -131,14 +131,12 @@ Fill the table
 [string]$body = ConvertTo-HTML -Head $head -Body $html.InnerXml -PostContent "<h6>Created $(Get-Date)</h6>"
 
 $mailParams=@{
-    To = "jeroen.vandooren@meise.be"
+    To = "jeroen.vandooren@meise.be","gmhelpdesk@meise.be"
     From = "no-reply@meise.be"
     Subject = "Server status report"
     SmtpServer = "GMEXCVM001"
     Body = $body
     BodyAsHTML = $true
 }
-
-$Data
 
 Send-MailMessage @mailParams

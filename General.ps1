@@ -29,31 +29,38 @@ function GetAdminCredentials() {
     else {
         $Password = Read-Host "Enter password from User $USERNAME" -AsSecureString | ConvertFrom-SecureString | Out-File $CREDENTIALPATH
     }
+    $Credentials = New-Object -TypeName System.Management.Automation.PSCredential -ArgumentList $USERNAME,$Password
+    return $Credentials
 }
-$Credentials = New-Object -TypeName System.Management.Automation.PSCredential -ArgumentList $USERNAME,$Password
 
 <#
 EXCHANGE CONNECTION
 #>
 function MakeExchangeConnection() {
-    Write-Host "...Opening Exchange PSSession...."
-    GetAdminCredentials
+    GenerateOutput "Opening Exchange PSSession"
+    $Credentials = GetAdminCredentials
     try {
         $ExchangeSession = New-PSSession -ConfigurationName Microsoft.EXCHANGE -ConnectionUri $CONNECTIONURI -Authentication Kerberos -Credential $Credentials
-        Import-PSSession $ExchangeSession -DisableNameChecking
+        $ExchangeImportedSession = Import-PSSession $ExchangeSession -DisableNameChecking
+        GenerateOutput "Exchange PSSession succesfully opened! You can now use PS Exchange commands!"
     }
     catch {
         "Error while opening Exchange PSSession!"
     }
-    Write-Host "### Exchange PSSession succesfully opened ###`nYou can now use PS Exchange commands!"
+    
 }
 
+function GenerateOutput([string]$Value) {
+    $Row = "#" * ($Value.Length + 8)
+    $Tekst += "### "+ $Value + " ###"
+    Write-Host $Row"`n"$Tekst"`n"$Row"`n"
+}
 <#
 VCENTER CONNECTION
 #>
 function ConnectToVCenter(){
     Write-Host "Opening VCenter Connection...."
-    GetAdminCredentials
+    $Credentials = GetAdminCredentials
     try {
         $VIConnection = Connect-VIServer "ACVCEVM001" -Credential $Credentials -WarningAction SilentlyContinue
     }

@@ -1,7 +1,7 @@
 <#Variables#>
 $PASSWORDPATH = "C:\ProgramData\credentials.txt"
 $USER = $env:USERDOMAIN+"\"+$env:USERNAME
-$SEARCHBASE = "OU=Servers,OU=1. Administratief Centrum,DC=gmmeise,DC=local"
+$SEARCHBASE = @("OU=Servers,OU=1. Administratief Centrum,DC=gmmeise,DC=local","OU=Domain Controllers,DC=gmmeise,DC=local")
 
 <#
 Store password in a txt file
@@ -29,7 +29,7 @@ foreach ($name in $Names)
     $date = Get-CimInstance -ClassName win32_operatingsystem -ComputerName $name.Name -ErrorAction SilentlyContinue | Select-Object LastBootuptime  
     if($date) { $value = $date.LastBootuptime }
     else { 
-        $date = Get-WmiObject win32_operatingsystem -ComputerName GMSQLVM002 -ErrorAction SilentlyContinue | Select-Object @{LABEL='LastBootUpTime';EXPRESSION={$_.ConverttoDateTime($_.lastbootuptime)}}
+        $date = Get-WmiObject win32_operatingsystem -ComputerName $name.Name -ErrorAction SilentlyContinue | Select-Object @{LABEL='LastBootUpTime';EXPRESSION={$_.ConverttoDateTime($_.lastbootuptime)}}
         if($date) { $value = $date.Lastbootuptime }
     }
     $lijstVM.Add($key, $value) 
@@ -41,9 +41,18 @@ Foreach server, check the group it's in and define restart day
 #>
 $Computers = @{}
 $ListServers = @()
-$AppOU = Get-ADOrganizationalUnit -LDAPFilter '(name=*)' -SearchBase $SearchBase -SearchScope OneLevel
-foreach ($ou in $AppOU){
-    $ListServers += Get-ADComputer -Filter * -Properties Name, MemberOf -SearchBase $ou | Select-Object Name, @{Name="Restart";E={$_.MemberOf.Value}} | Sort-Object MemberOf
+foreach ($SEARCHBASE in $SEARCHBASES){
+    if($SEARCHBASE -like "*Domain Controllers*")
+    {
+        $ListServers += Get-ADComputer -Filter * -Properties Name, MemberOf -SearchBase $SEARCHBASE | Select-Object Name, @{Name="Restart";E={$_.MemberOf.Value}} | Sort-Object MemberOf
+    }
+    else 
+    {   
+        $AppOU = Get-ADOrganizationalUnit -LDAPFilter '(name=*)' -SearchBase $SearchBase -SearchScope OneLevel
+        foreach ($ou in $AppOU){
+            $ListServers += Get-ADComputer -Filter * -Properties Name, MemberOf -SearchBase $ou | Select-Object Name, @{Name="Restart";E={$_.MemberOf.Value}} | Sort-Object MemberOf
+        }
+    }
 }
 
 foreach ($server in $ListServers) {

@@ -16,6 +16,7 @@ $CONNECTIONURI = "http://ACEXCVM001/Powershell/"
 <#
 IMPORT MODULES
 #>
+GenerateOutput "Import AD"
 Import-Module ActiveDirectory
 
 
@@ -50,11 +51,15 @@ function MakeExchangeConnection() {
     
 }
 
+<#
+Create output with #
+#>
 function GenerateOutput([string]$Value) {
     $Row = "#" * ($Value.Length + 8)
     $Tekst += "### "+ $Value + " ###"
     Write-Host $Row"`n"$Tekst"`n"$Row"`n"
 }
+
 <#
 VCENTER CONNECTION
 #>
